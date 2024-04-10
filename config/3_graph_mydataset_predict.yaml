@@ -1,0 +1,126 @@
+hydra:
+  run:
+    dir: ./
+
+data_dir: /data/shy/data/StreetDataset/annotations_combination/data
+image_dir: /data/shy/data/StreetDataset/SAFRS_dataset/segmentation
+
+train_file: ${data_dir}/CO_train.json
+test_file: ${data_dir}/CO.json
+
+model_type: user_item_outfit_vit_v
+dataset_name: "mydataset"
+
+embedding_memory:
+  _target_: data_loader.data_utils.EmbeddingMatrix
+  attr_text: ${data_dir}/attribute_emb_weight.pt
+  item_image: ${data_dir}/item_img.pt
+
+dataset:
+  _target_: data_loader.${model_type}.data_loader_combination.SubgraphDataset
+
+# Data collator
+collator:
+  _target_: data_loader.${model_type}.data_collator_combination_predict.SubgraphCollatorVocab
+  user_vocab: ${data_dir}/user_vocab.json
+  attr_vocab: ${data_dir}/attribute_vocab.json
+  item_vocab: ${data_dir}/item_vocab.json
+  node_vocab: ${data_dir}/vocab.pt
+  bodyshape_vocab: ${data_dir}/bodyshape_vocab.json
+  outfit_vocab: ${data_dir}/outfit_vocab.json
+  scene_vocab: ${data_dir}/scene_vocab.json
+  
+  imgpathdir: ${image_dir}
+  scene2path: ${data_dir}/scene2path.json
+
+  uc_edge: ${data_dir}/UC.json
+  cu_edge: ${data_dir}/CU.json
+  co_edge: ${data_dir}/CO.json
+  oc_edge: ${data_dir}/OC.json
+  oi_edge: ${data_dir}/OI.json
+  io_edge: ${data_dir}/IO.json
+  ia_edge: ${data_dir}/IA.json
+  ub_edge: ${data_dir}/UB.json
+  cs_edge: ${data_dir}/CS.json
+  
+  outfit_location: ${data_dir}/outfit_location.json
+  scene_location: ${data_dir}/scene_location.json
+
+num_workers: 4
+eval_num_workers: 4
+prefetch_factor: 2
+
+# Model
+model:
+  _target_: models.${model_type}.gat_tf_emb_combination_predict.GATTransformer
+  item_vocab: ${collator.item_vocab}
+  item_embedding: ${data_dir}/item_img_vit.pt
+  user_vocab: ${collator.user_vocab}
+  user_embedding: ${data_dir}/user_emb_weight.pt
+  bodyshape_vocab: ${collator.bodyshape_vocab}
+  bodyshape_embedding: ${data_dir}/bodyshape_emb_weight.pt
+
+  text_hidden_size: 768
+  img_hidden_size: 768
+  hidden_size: 512
+  threshold: 0.7
+
+pretrain:
+
+# output_dir: experiments/${model_type}-${dataset_name}/2023-12-13-16-53
+output_dir: experiments/${model_type}-${dataset_name}/threshold-0.7/2023-12-16-19-21
+
+do_train: True
+evaluate_during_training: True
+
+do_eval: True
+eval_sub_path:
+
+# Training hyper-parameters
+per_gpu_train_batch_size: 16
+per_gpu_eval_batch_size: 8
+learning_rate: 5e-5
+gradient_accumulation_steps: 32
+weight_decay: 0.1
+adam_epsilon: 1e-6
+adam_betas: "(0.9, 0.98)"
+max_grad_norm: 0.0
+num_train_epochs: 50
+max_steps: 0
+warmup_proportion: 0.06
+warmup_steps:
+multi_tensor:
+
+# Prediction config
+prediction_cfg:
+  metric: "auc"
+  measure: 1
+  best_checkpoint:
+  best_result:
+
+logging_steps: 5
+summary_helper:
+  _target_: general_util.training_utils.SummaryWriterHelper
+
+save_epochs: 10
+save_steps: 200
+save_best: True
+eval_steps: 200
+test_steps: 10
+no_cuda: False
+seed: 42
+local_rank: -1
+fp16: True
+fp16_opt_level: O1
+
+reshard_after_forward: False
+cpu_offload: False
+move_grads_to_cpu: False
+move_params_to_cpu: False
+
+# Temporary variables
+n_gpu:
+device:
+train_batch_size:
+eval_batch_size:
+world_size:

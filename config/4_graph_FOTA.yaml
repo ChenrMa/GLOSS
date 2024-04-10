@@ -1,0 +1,201 @@
+hydra:
+  run:
+    dir: ./
+
+data_dir: /data/shy/data/FOTA/data/data
+image_dir: /data/shy/data/FOTA/segmentation
+graph_dir: experiments/user_item_outfit_vit_v-FOTA/threshold--0.1/2023-12-16-22-36
+# experiments/user_item_outfit_vit_v-FOTA/threshold-0.1/2023-12-17-05-48
+#experiments/user_item_outfit_vit_v-FOTA/threshold-0.5/2023-12-16-19-16/2023-12-16-21-19
+#experiments/user_item_outfit_vit_v-FOTA/2023-12-16-15-50/2023-12-16-18-34
+
+train_file: ${data_dir}/train.json
+val_file: ${data_dir}/test.json
+test_file: ${data_dir}/test.json
+
+model_type: graph_multi
+dataset_name: FOTA
+
+
+embedding_memory:
+  _target_: data_loader.data_utils.EmbeddingMatrix
+  attr_text: ${data_dir}/attribute_emb_weight.pt
+  item_image: ${data_dir}/item_img.pt
+
+dataset:
+  _target_: data_loader.graph_FOTA.data_loader_combination.SubgraphDataset
+  train_subgraph_dir: ${data_dir}/cl_train_down_find
+  test_subgraph_dir: ${data_dir}/cl_test_down_find
+  val_subgraph_dir: ${data_dir}/cl_test_down_find
+
+# Data collator
+collator:
+  _target_: data_loader.graph_FOTA.data_collator_combination.SubgraphCollatorVocab
+  user_vocab: ${data_dir}/user_vocab.json
+  outfit_vocab: ${data_dir}/outfit_vocab.json
+  item_vocab: ${data_dir}/item_vocab.json
+  combination_vocab: ${data_dir}/combination_vocab.json
+  node_vocab: ${data_dir}/vocab.pt
+  scene_vocab: ${data_dir}/scene_img_vocab.json
+  
+  imgpathdir: ${image_dir}
+  scene2path: ${data_dir}/scene2path.json
+
+  uc_edge: ${data_dir}/UC.json
+  cu_edge: ${data_dir}/CU.json
+  co_edge: ${data_dir}/CO_train.json
+  oi_edge: ${data_dir}/OI.json
+  sc_edge: ${data_dir}/SC_img.json
+  cs_edge: ${data_dir}/CS_img.json
+
+collator_predict:
+  _target_: data_loader.graph_FOTA.data_collator_combination_predict.SubgraphCollatorVocab
+  user_vocab: ${data_dir}/user_vocab.json
+  outfit_vocab: ${data_dir}/outfit_vocab.json
+  item_vocab: ${data_dir}/item_vocab.json
+  combination_vocab: ${data_dir}/combination_vocab.json
+  node_vocab: ${data_dir}/vocab.pt
+  scene_vocab: ${data_dir}/scene_img_vocab.json
+  
+  imgpathdir: ${image_dir}
+  scene2path: ${data_dir}/scene2path.json
+
+  uc_edge: ${data_dir}/UC.json
+  cu_edge: ${data_dir}/CU.json
+  co_edge: ${data_dir}/CO_train.json
+  oi_edge: ${data_dir}/OI.json
+  sc_edge: ${data_dir}/SC_img.json
+  cs_edge: ${data_dir}/CS_img.json
+# Dataloader
+num_workers: 4
+eval_num_workers: 4
+prefetch_factor: 2
+
+# Model
+model:
+  _target_: models.${model_type}.gat_tf_emb_combination.GATTransformer
+  item_vocab: ${collator.item_vocab}
+  item_embedding: ${data_dir}/item_img_vit.pt
+  item_graph_embedding: ${graph_dir}/item_emb_graph.pt
+  outfit_vocab: ${collator.outfit_vocab}
+  outfit_embedding: ${data_dir}/outfit_emb_vit.pt
+  outfit_graph_embedding: ${graph_dir}/outfit_emb_graph.pt
+  user_vocab: ${collator.user_vocab}
+  user_embedding: ${data_dir}/user_emb_weight.pt
+  user_graph_embedding: ${graph_dir}/user_emb_graph.pt
+  combination_vocab: ${collator.combination_vocab}
+  combination_embedding: ${data_dir}/combination_emb_weight.pt
+  scene_vocab: ${collator.scene_vocab}
+  scene_embedding: ${data_dir}/scene_img_vit.pt
+  scene_graph_embedding: ${graph_dir}/scene_emb_graph.pt
+
+  img_hidden_size: 768
+  hidden_size: 512
+  hash_hidden_size: 512
+  alpha: 1
+  iter_ids: [1, 2, 3]
+  graph_alpha: [1,1,1,1]
+  
+  gnn:
+    _target_: models.gat.GAT
+    num_layers: 1
+    input_size: ${model.hidden_size}
+    num_heads: 8
+    head_size: 64
+    feat_dropout: 0.1
+    attn_dropout: 0.1
+    residual: True
+    eps: 0
+
+model_predict:
+  _target_: models.${model_type}.gat_tf_emb_combination_predict.GATTransformer
+  item_vocab: ${collator.item_vocab}
+  item_embedding: ${data_dir}/item_img_vit.pt
+  item_graph_embedding: ${graph_dir}/item_emb_graph.pt
+  outfit_vocab: ${collator.outfit_vocab}
+  outfit_embedding: ${data_dir}/outfit_emb_vit.pt
+  outfit_graph_embedding: ${graph_dir}/outfit_emb_graph.pt
+  user_vocab: ${collator.user_vocab}
+  user_embedding: ${data_dir}/user_emb_weight.pt
+  user_graph_embedding: ${graph_dir}/user_emb_graph.pt
+  combination_vocab: ${collator.combination_vocab}
+  combination_embedding: ${data_dir}/combination_emb_weight.pt
+  scene_vocab: ${collator.scene_vocab}
+  scene_embedding: ${data_dir}/scene_img_vit.pt
+  scene_graph_embedding: ${graph_dir}/scene_emb_graph.pt
+
+  img_hidden_size: 768
+  hidden_size: 512
+  hash_hidden_size: 512
+  iter_ids: [1, 2, 3]
+  graph_alpha: [1,1,1,1]
+  
+  gnn:
+    _target_: models.gat.GAT
+    num_layers: 1
+    input_size: ${model.hidden_size}
+    num_heads: 8
+    head_size: 64
+    feat_dropout: 0.1
+    attn_dropout: 0.1
+    residual: True
+    eps: 0
+
+pretrain:
+
+output_dir: experiments/${model_type}-${dataset_name}
+
+do_train: True
+evaluate_during_training: True
+
+do_eval: True
+eval_sub_path:
+
+# Training hyper-parameters
+per_gpu_train_batch_size: 64
+per_gpu_eval_batch_size: 8
+learning_rate: 5e-5
+gradient_accumulation_steps: 32
+weight_decay: 0.1
+adam_epsilon: 1e-6
+adam_betas: "(0.9, 0.98)"
+max_grad_norm: 0.0
+num_train_epochs: 100
+max_steps: 0
+warmup_proportion: 0.06
+warmup_steps:
+multi_tensor:
+
+# Prediction config
+prediction_cfg:
+  metric: "auc"
+  measure: 1
+  best_checkpoint:
+  best_result:
+
+logging_steps: 5
+summary_helper:
+  _target_: general_util.training_utils.SummaryWriterHelper
+
+save_epochs: 10
+save_steps: 200
+save_best: True
+eval_steps: 200
+test_steps: 10
+no_cuda: False
+seed: 42
+local_rank: -1
+fp16: True
+fp16_opt_level: O1
+
+reshard_after_forward: False
+cpu_offload: False
+move_grads_to_cpu: False
+move_params_to_cpu: False
+
+# Temporary variables
+n_gpu:
+device:
+train_batch_size:
+eval_batch_size:
+world_size:
